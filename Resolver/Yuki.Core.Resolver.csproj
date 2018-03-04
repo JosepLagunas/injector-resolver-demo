@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>Yuki.Core.Resolver</AssemblyName>
+    <RootNamespace>Yuki.Core.Resolver</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Yuki.Core.Interfaces\Yuki.Core.Interfaces.csproj" />
+  </ItemGroup>
+
+</Project>
