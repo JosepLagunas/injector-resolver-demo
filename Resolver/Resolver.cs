@@ -11,32 +11,41 @@ namespace Yuki.Core.Resolver
 {
     public class Resolver : Singleton<Resolver>
     {
-
         private IDictionary<string, IDictionary<Country, string>> mappings;
         private Assembly implementationsAssembly;
+        
+        private const string errMsgNotImplemented = "{0} not implemented.";
+        private const string loadImplementationError = "Unable to create instance of Type {0}";
+        private const string IMPLEMENTATIONS_ASSEMBLY_PATH =
+            "..\\..\\..\\Yuki.Core.Implementations\\obj\\Debug\\Yuki.Core.Implementations.dll";
 
         private Resolver()
         {
-
-            mappings = new Dictionary<string, IDictionary<Country, string>>();
-            implementationsAssembly =
-             Assembly.LoadFile(string.Format("{0}..\\..\\..\\Yuki.Core.Implementations\\obj" +
-             "\\Debug\\Yuki.Core.Implementations.dll", AppContext.BaseDirectory));
-
+            InitializeMappingsDictionary();
+            LoadImplementationAssembly();
             DoMappings();
-
         }
 
-        private static string errMsgNotImplemented = "{0} not implemented.";
+        private void InitializeMappingsDictionary()
+        {
+            mappings = new Dictionary<string, IDictionary<Country, string>>();
+        }
+
+        private void LoadImplementationAssembly()
+        {            
+            implementationsAssembly = Assembly
+                .LoadFile(string.Format("{0}{1}", 
+                AppContext.BaseDirectory, IMPLEMENTATIONS_ASSEMBLY_PATH));
+        }
+                
         private static Resolver InitializeInstance()
         {
             return new Resolver();
         }
 
+        // TO DO: Add support for xml or json map config file.
         private void DoMappings()
-        {  //This could be done using a xml configuration file.
-           //We could map all the type but only goona map those having multiple implementations
-           //for single matching (interface => 1 implementation) we resolve using Linq
+        {  
             var VatImplementationsDic = new Dictionary<Country, string>
             {
                 { Country.Belgium, "VATBelgium" },
@@ -59,6 +68,16 @@ namespace Yuki.Core.Resolver
                 string implementationName = GetInstance().mappings[interfaceName][country];
                 return GetInstance().GetImplementation<T>(implementationName);
             }
+            catch (NotImplementedException e)
+            {
+                //Handle exception, out of scoope now.
+                throw e;
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                //Handle exception, out of scoope now.
+                throw e;
+            }
             catch (Exception e)
             {
                 //Handle exception, out of scoope now.
@@ -68,61 +87,78 @@ namespace Yuki.Core.Resolver
 
         private T GetImplementation<T>() where T : IDataComponent
         {
-            Type interfaceArgType = typeof(T);
-
-            Type implementationType = (from type in implementationsAssembly.GetTypes()
-                                       where interfaceArgType.IsAssignableFrom(type)
-                                       && type.IsInterface == false
-                                       select type).FirstOrDefault();
-
-            if (implementationType == null || typeof(T) == typeof(IDataComponent))
+            if (!TryFindImplementation<T>(out Type implementationType))
             {
-                throw new NotImplementedException(string.Format(errMsgNotImplemented,
-                        typeof(T).ToString()));
+                ThrowNotImplementedTypeException<T>();
             }
 
-            var instance = implementationsAssembly.CreateInstance(implementationType.FullName);
-
-            if (instance == null)
+            if (!TryToCreateInstance<T>(implementationType, out T instance))
             {
-                List<Type> types = new List<Type>
-                {
-                    interfaceArgType
-                };
-                throw new ReflectionTypeLoadException(types.ToArray(), null, "Unable to load instance");
+                ThrowErrorOnTypeLoadException<T>();
+            }
+
+            return (T)instance;
+        }
+        
+        private T GetImplementation<T>(string implementationTypeName) where T : IDataComponent
+        {
+            implementationTypeName = implementationTypeName.ToLower();
+
+            if (!TryFindImplementation<T>(implementationTypeName, out Type implementationType))
+            {
+                ThrowNotImplementedTypeException<T>();
+            }
+
+            if (!TryToCreateInstance<T>(implementationType, out T instance))
+            {
+                ThrowErrorOnTypeLoadException<T>();
             }
 
             return (T)instance;
         }
 
-        private T GetImplementation<T>(string implementationTypeName) where T : IDataComponent
+        private bool TryFindImplementation<T>(out Type implementationType) where T : IDataComponent
+        {
+            implementationType = FindImplementations<T>().FirstOrDefault();
+            return implementationType != null && typeof(T) != typeof(IDataComponent);
+        }
+
+        private bool TryFindImplementation<T>(string implementationTypeName,
+            out Type implementationType) where T : IDataComponent
+        {
+            implementationType =
+                FindImplementations<T>()
+                .FirstOrDefault(t => t.Name.ToLower() == implementationTypeName);
+
+            return implementationType != null && typeof(T) != typeof(IDataComponent);
+        }
+
+        private IEnumerable<Type> FindImplementations<T>() where T : IDataComponent
         {
             Type interfaceType = typeof(T);
 
-            Type implementationType = (from type in implementationsAssembly.GetTypes()
-                                       where interfaceType.IsAssignableFrom(type)
-                                       && type.IsInterface == false
-                                       && type.Name.ToLower() == implementationTypeName.ToLower()
-                                       select type).FirstOrDefault();
+            return (from type in implementationsAssembly.GetTypes()
+                    where interfaceType.IsAssignableFrom(type)
+                    && type.IsInterface == false
+                    select type);
+        }
 
-            if (implementationType == null || typeof(T) == typeof(IDataComponent))
-            {
-                throw new NotImplementedException(string.Format(errMsgNotImplemented,
-                        typeof(T).ToString()));
-            }
+        private static void ThrowNotImplementedTypeException<T>() where T : IDataComponent
+        {
+            throw new NotImplementedException(string.Format(errMsgNotImplemented,
+                                    typeof(T).ToString()));
+        }
 
-            var instance = implementationsAssembly.CreateInstance(implementationType.FullName);
+        private bool TryToCreateInstance<T>(Type outputType, out T instance)
+        {
+            instance = (T)implementationsAssembly.CreateInstance(outputType.FullName);
+            return instance != null;
+        }
 
-            if (instance == null)
-            {
-                List<Type> types = new List<Type>
-                {
-                    interfaceType
-                };
-                throw new ReflectionTypeLoadException(types.ToArray(), null, "Unable to load instance");
-            }
-
-            return (T)instance;
+        private static void ThrowErrorOnTypeLoadException<T>() where T : IDataComponent
+        {
+            string errorMessage = string.Format(loadImplementationError, typeof(T).FullName);
+            throw new ReflectionTypeLoadException(null, null, errorMessage);
         }
     }
 }
