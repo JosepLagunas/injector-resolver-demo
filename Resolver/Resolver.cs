@@ -57,7 +57,25 @@ namespace Yuki.Core.Resolver
 
         public static T Resolve<T>() where T : IDataComponent
         {
-            return GetInstance().GetImplementation<T>();
+            try
+            {
+                return GetInstance().GetImplementation<T>();
+            }
+            catch (NotImplementedException e)
+            {
+                //Handle exception, out of scoope now.
+                throw e;
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                //Handle exception, out of scoope now.
+                throw e;
+            }
+            catch (Exception e)
+            {
+                //Handle exception, out of scoope now.
+                throw e;
+            }
         }
 
         public static T Resolve<T>(Country country) where T : IDataComponent
