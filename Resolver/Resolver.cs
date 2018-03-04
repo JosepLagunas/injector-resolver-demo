@@ -13,7 +13,7 @@ namespace Yuki.Core.Resolver
     {
         private IDictionary<string, IDictionary<Country, string>> mappings;
         private Assembly implementationsAssembly;
-
+        
         private const string errMsgNotImplemented = "{0} not implemented.";
         private const string loadImplementationError = "Unable to create instance of Type {0}";
         private const string IMPLEMENTATIONS_ASSEMBLY_PATH =
@@ -99,7 +99,7 @@ namespace Yuki.Core.Resolver
 
             return (T)instance;
         }
-
+        
         private T GetImplementation<T>(string implementationTypeName) where T : IDataComponent
         {
             implementationTypeName = implementationTypeName.ToLower();
