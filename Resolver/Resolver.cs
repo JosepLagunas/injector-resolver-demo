@@ -11,48 +11,131 @@ namespace Yuki.Core.Resolver
 {
     public class Resolver : Singleton<Resolver>
     {
-        private IDictionary<string, IDictionary<Country, string>> mappings;
-        private Assembly implementationsAssembly;
-        
+        private IDictionary<string, IDictionary<Country, string>> implementationsMapping;
+
+        private List<Type> implementationsTypes;
+
         private const string errMsgNotImplemented = "{0} not implemented.";
         private const string loadImplementationError = "Unable to create instance of Type {0}";
+
+        private const string MAPPINGS_CONFIG_FILE_PATH = "..\\..\\..\\Resolver.config";
+
         private const string IMPLEMENTATIONS_ASSEMBLY_PATH =
             "..\\..\\..\\Yuki.Core.Implementations\\obj\\Debug\\Yuki.Core.Implementations.dll";
 
-        private Resolver()
+        private const string USER_IMPLEMENTATION_ASSEMBLY_PATH =
+            "..\\..\\..\\Yuki.Core.Implementations.User\\obj\\" +
+            "Debug\\netstandard2.0\\Yuki.Core.Implementations.User.dll";
+
+        private Resolver(bool useConfigurationFile)
         {
             InitializeMappingsDictionary();
-            LoadImplementationAssembly();
+            
+            if (useConfigurationFile)
+            {
+                SetConfigurationFromFile();
+            }
+            else
+            {
+                SetConfiguration();
+            }
+        }
+
+        private void SetConfigurationFromFile()
+        {
+            string basePath = AppContext.BaseDirectory;
+
+            MappingConfiguration mappingConfiguration =
+                    MappingConfiguration.LoadMappingConfiguration(MAPPINGS_CONFIG_FILE_PATH);
+
+            IEnumerable<string> absoluteAssembliesPaths =
+                mappingConfiguration.AssembliesFiles.ToList()
+                .Select(path => basePath + path);
+
+            IEnumerable<Assembly> assemblies =
+                LoadImplementationsAssemblies(absoluteAssembliesPaths);
+
+            LoadImplementationsTypes(assemblies);
+            DoMappings(mappingConfiguration.Mappings);
+        }
+
+        private void SetConfiguration()
+        {
+            string basePath = AppContext.BaseDirectory;
+
+            IEnumerable<Assembly> assemblies =
+                    LoadImplementationsAssemblies(new List<string>{
+                        basePath + IMPLEMENTATIONS_ASSEMBLY_PATH,
+                        basePath + USER_IMPLEMENTATION_ASSEMBLY_PATH });
+
+            LoadImplementationsTypes(assemblies);
             DoMappings();
         }
 
         private void InitializeMappingsDictionary()
         {
-            mappings = new Dictionary<string, IDictionary<Country, string>>();
+            implementationsMapping = new Dictionary<string, IDictionary<Country, string>>();
         }
 
-        private void LoadImplementationAssembly()
-        {            
-            implementationsAssembly = Assembly
-                .LoadFile(string.Format("{0}{1}", 
-                AppContext.BaseDirectory, IMPLEMENTATIONS_ASSEMBLY_PATH));
+        private void LoadImplementationsTypes(IEnumerable<Assembly> assemblies)
+        {
+            implementationsTypes = (from assembly in assemblies
+                                    select assembly.GetTypes())
+                                    .SelectMany(c => c).ToList();
         }
-                
+
+        private MappingConfiguration LoadMappingConfigurationFile(string path)
+        {
+            string mappingConfigFilePath =
+                string.Format("{0}{1}", AppContext.BaseDirectory, MAPPINGS_CONFIG_FILE_PATH);
+
+            return MappingConfiguration.LoadMappingConfiguration(mappingConfigFilePath);
+        }
+
+        private IEnumerable<Assembly>
+            LoadImplementationsAssemblies(IEnumerable<string> assembliesFilePaths)
+        {
+            IList<Assembly> assemblies = new List<Assembly>();
+
+            assembliesFilePaths.ToList()
+                .ForEach(path => assemblies.Add(Assembly.LoadFile(path)));
+
+            return assemblies;
+        }
+
         private static Resolver InitializeInstance()
         {
-            return new Resolver();
+            return new Resolver(true);
         }
 
-        // TO DO: Add support for xml or json map config file.
         private void DoMappings()
-        {  
+        {
             var VatImplementationsDic = new Dictionary<Country, string>
             {
                 { Country.Belgium, "VATBelgium" },
                 { Country.Netherlands, "VATNetherlands" },
                 { Country.Spain, "VATSpain" }
             };
-            mappings.Add(typeof(IVat).Name, VatImplementationsDic);
+            implementationsMapping.Add(typeof(IVat).Name, VatImplementationsDic);
+        }
+
+        private void DoMappings(IEnumerable<Mapping> mappings)
+        {
+            mappings.ToList()
+                .ForEach(mapping =>
+                {
+                    //ignore single mapping by now. fetched at runtime via Linq.
+                    if (mapping.MultiImplementation)
+                    {
+                        MultiMapping multiMapping = (MultiMapping)mapping;
+
+                        var implementationsDic = new Dictionary<Country, string>();
+                        multiMapping.Implementations.ToList<SpecificImplementation>()
+                        .ForEach(m => implementationsDic.Add(m.Discriminator, m.Implementation));
+
+                        implementationsMapping.Add(mapping.Interface, implementationsDic);
+                    }
+                });
         }
 
         public static T Resolve<T>() where T : IDataComponent
@@ -83,7 +166,7 @@ namespace Yuki.Core.Resolver
             try
             {
                 string interfaceName = typeof(T).Name;
-                string implementationName = GetInstance().mappings[interfaceName][country];
+                string implementationName = GetInstance().implementationsMapping[interfaceName][country];
                 return GetInstance().GetImplementation<T>(implementationName);
             }
             catch (NotImplementedException e)
@@ -117,7 +200,7 @@ namespace Yuki.Core.Resolver
 
             return (T)instance;
         }
-        
+
         private T GetImplementation<T>(string implementationTypeName) where T : IDataComponent
         {
             implementationTypeName = implementationTypeName.ToLower();
@@ -135,13 +218,13 @@ namespace Yuki.Core.Resolver
             return (T)instance;
         }
 
-        private bool TryFindImplementation<T>(out Type implementationType) where T : IDataComponent
+        internal bool TryFindImplementation<T>(out Type implementationType) where T : IDataComponent
         {
             implementationType = FindImplementations<T>().FirstOrDefault();
             return implementationType != null && typeof(T) != typeof(IDataComponent);
         }
 
-        private bool TryFindImplementation<T>(string implementationTypeName,
+        internal bool TryFindImplementation<T>(string implementationTypeName,
             out Type implementationType) where T : IDataComponent
         {
             implementationType =
@@ -155,7 +238,7 @@ namespace Yuki.Core.Resolver
         {
             Type interfaceType = typeof(T);
 
-            return (from type in implementationsAssembly.GetTypes()
+            return (from type in implementationsTypes
                     where interfaceType.IsAssignableFrom(type)
                     && type.IsInterface == false
                     select type);
@@ -169,7 +252,7 @@ namespace Yuki.Core.Resolver
 
         private bool TryToCreateInstance<T>(Type outputType, out T instance)
         {
-            instance = (T)implementationsAssembly.CreateInstance(outputType.FullName);
+            instance = (T)outputType.Assembly.CreateInstance(outputType.FullName);
             return instance != null;
         }
 
