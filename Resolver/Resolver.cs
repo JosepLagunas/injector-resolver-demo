@@ -18,7 +18,8 @@ namespace Yuki.Core.Resolver
         private const string errMsgNotImplemented = "{0} not implemented.";
         private const string loadImplementationError = "Unable to create instance of Type {0}";
 
-        private const string MAPPINGS_CONFIG_FILE_PATH = "..\\..\\..\\Resolver.config";
+        private const string MAPPINGS_CONFIG_FILE_PATH = 
+			   "..\\..\\..\\resolver\\resolver-mapping-config.json";
 
         private const string IMPLEMENTATIONS_ASSEMBLY_PATH =
             "..\\..\\..\\Yuki.Core.Implementations\\obj\\Debug\\Yuki.Core.Implementations.dll";
@@ -43,10 +44,13 @@ namespace Yuki.Core.Resolver
 
         private void SetConfigurationFromFile()
         {
-            string basePath = AppContext.BaseDirectory;
+			   string basePath = AppContext.BaseDirectory;
+
+            string configurationFilePath = string.Format("{0}{1}", 
+					AppContext.BaseDirectory,MAPPINGS_CONFIG_FILE_PATH);
 
             MappingConfiguration mappingConfiguration =
-                    MappingConfiguration.LoadMappingConfiguration(MAPPINGS_CONFIG_FILE_PATH);
+                    MappingConfiguration.LoadMappingConfiguration(configurationFilePath);
 
             IEnumerable<string> absoluteAssembliesPaths =
                 mappingConfiguration.AssembliesFiles.ToList()
@@ -136,7 +140,7 @@ namespace Yuki.Core.Resolver
                         implementationsMapping.Add(mapping.Interface, implementationsDic);
                     }
                 });
-        }
+        }		  
 
         public static T Resolve<T>() where T : IDataComponent
         {
