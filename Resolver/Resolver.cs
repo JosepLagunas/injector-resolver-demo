@@ -6,12 +6,15 @@ using Yuki.Core.Interfaces;
 using Yuki.Core.Interfaces.Vat;
 using Yuki.Core.Resolver.Countries;
 using Yuki.Core.Resolver.Infrastructure;
+using System.Reflection.Emit;
 
 namespace Yuki.Core.Resolver
 {
     public class Resolver : Singleton<Resolver>
     {
         private IDictionary<string, IDictionary<Country, string>> implementationsMapping;
+        private delegate dynamic CreateInstanceDelegate();
+        private IDictionary<Type, CreateInstanceDelegate> constructors;
 
         private List<Type> implementationsTypes;
 
@@ -30,7 +33,8 @@ namespace Yuki.Core.Resolver
         private Resolver(bool useConfigurationFile)
         {
             InitializeMappingsDictionary();
-            
+            constructors = new Dictionary<Type, CreateInstanceDelegate>();
+
             if (useConfigurationFile)
             {
                 SetConfigurationFromFile();
@@ -251,8 +255,35 @@ namespace Yuki.Core.Resolver
         }
 
         private bool TryToCreateInstance<T>(Type outputType, out T instance)
-        {
-            instance = (T)outputType.Assembly.CreateInstance(outputType.FullName);
+        {   
+            if (!GetInstance().constructors.TryGetValue(outputType, 
+                out CreateInstanceDelegate constructor))
+            {
+                lock (outputType)
+                {
+                    if (!GetInstance().constructors.TryGetValue(outputType,
+                        out constructor))
+                    {
+                        DynamicMethod dynamicMethod = 
+                            new DynamicMethod("Constructor_" + outputType.Name
+                            , outputType, new Type[0]);
+
+                        ConstructorInfo constructorInfo = outputType.GetConstructor(new Type[0]);
+                        ILGenerator iLGenerator = dynamicMethod.GetILGenerator();
+                        iLGenerator.Emit(OpCodes.Newobj, constructorInfo);
+                        iLGenerator.Emit(OpCodes.Ret);
+
+                        constructor =
+                            (CreateInstanceDelegate)dynamicMethod
+                            .CreateDelegate(typeof(CreateInstanceDelegate));
+
+                        constructors.Add(outputType, constructor);
+                    }
+                }
+            }
+
+            instance = (T)constructor();
+
             return instance != null;
         }
 
