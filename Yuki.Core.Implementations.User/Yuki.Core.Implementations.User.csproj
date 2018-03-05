@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Resolver\Yuki.Core.Resolver.csproj" />
+    <ProjectReference Include="..\Yuki.Core.Interfaces\Yuki.Core.Interfaces.csproj" />
+  </ItemGroup>
+
+</Project>
