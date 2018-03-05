@@ -1,6 +1,7 @@
 ﻿
 using System;
 using System.Linq;
+using Yuki.Common.Facades;
 using Yuki.Core.Interfaces.Calendar;
 using Yuki.Core.Interfaces.User;
 using Yuki.Core.Interfaces.Vat;
@@ -16,8 +17,29 @@ namespace TestApplication
             RunSingleUserCreation();
             RunCalendarEventCreation();
             RunMultipleImplementationExample();
+            RunStaticInfoFacadeAccessor();
 
             Console.ReadKey();
+        }
+
+        private static void RunStaticInfoFacadeAccessor()
+        {
+            Console.WriteLine("Accessing static info from implementation type USER");
+            string staticStringInfo = UserInformationFacade
+                .GetInstance.GetStaticPropertyValueNotAccessibleViaInterface();
+
+            Console.WriteLine(string.Format("Static property info from USER type: {0}",
+                staticStringInfo));
+
+            Console.WriteLine();
+
+            int staticIntInfo = UserInformationFacade
+                .GetInstance.GetStaticMethodValueNotAccessibleViaInterface();
+
+            Console.WriteLine(string.Format("Static method info from USER type: {0}",
+                staticIntInfo));
+
+            AddSeparator();
         }
 
         private static void RunCalendarEventCreation()
