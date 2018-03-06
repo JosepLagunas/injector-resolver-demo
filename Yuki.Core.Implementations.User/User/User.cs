@@ -2,7 +2,7 @@
 
 namespace Yuki.Core.Implementations.User.User
 {
-	class User : IUser
+	public class User : IUser
 	{
 		private string name;
 		public string Name { get => name; set => name = value; }
