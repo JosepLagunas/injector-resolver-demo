@@ -6,7 +6,7 @@ using Yuki.Core.Resolver;
 
 namespace Yuki.Core.Implementations.Calendar
 {
-    class Calendar : ICalendar
+    public class Calendar : ICalendar
     {
         private DateTime start;
         public DateTime Start { get => start; set => start = value; }

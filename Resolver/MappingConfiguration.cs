@@ -35,7 +35,8 @@ namespace Yuki.Core.Resolver
         public IEnumerable<string> AssembliesFiles { get; set; }
         [JsonProperty(PropertyName = "mappings")]
         public IEnumerable<Mapping> Mappings { get; set; }
-
+        [JsonProperty(PropertyName = "allow-singletypes-autoregister")]
+        public bool AllowAutoRegisterOfSingleTypes { get; internal set; }
 
         public static MappingConfiguration LoadMappingConfiguration(string mappingConfigFilePath)
         {
