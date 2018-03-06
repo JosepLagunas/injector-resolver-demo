@@ -9,318 +9,324 @@ using Yuki.Core.Resolver.Infrastructure;
 
 namespace Yuki.Core.Resolver
 {
-    public class Resolver : Singleton<Resolver>
-    {
-        private IDictionary<string, IDictionary<Country, string>> implementationsMapping;
-        private IDictionary<string, Mapping> typesMapping;
+   public class Resolver : Singleton<Resolver>
+   {
+      private IDictionary<string, IDictionary<Country, string>> implementationsMapping;
+      private IDictionary<string, Mapping> typesMapping;
 
-        private List<Type> implementationsTypes;
-        private bool mappingAllowAutoRegisterForSingleTypes;
+      private List<Type> implementationsTypes;
+      private bool mappingAllowAutoRegisterForSingleTypes;
 
-        private const string errMsgNotImplemented = "{0} not implemented.";
-        private const string loadImplementationError = "Unable to create instance of Type {0}";
-        private const string notRegisteredTypeError = "Not Registered Type found for {0}";
+      private const string errMsgNotImplemented = "{0} not implemented.";
+      private const string loadImplementationError = "Unable to create instance of Type {0}";
+      private const string notRegisteredTypeError = "Not Registered Type found for {0}";
 
-        private const string MAPPINGS_CONFIG_FILE_PATH = 
-			   "..\\..\\..\\resolver\\resolver-mapping-config.json";
+      private const string MAPPINGS_CONFIG_FILE_PATH =
+          "..\\..\\..\\resolver\\resolver-mapping-config.json";
 
-        private const string IMPLEMENTATIONS_ASSEMBLY_PATH =
-            "..\\..\\..\\Yuki.Core.Implementations\\obj\\Debug\\Yuki.Core.Implementations.dll";
+      private const string IMPLEMENTATIONS_ASSEMBLY_PATH =
+          "..\\..\\..\\Yuki.Core.Implementations\\obj\\Debug\\Yuki.Core.Implementations.dll";
 
-        private const string USER_IMPLEMENTATION_ASSEMBLY_PATH =
-            "..\\..\\..\\Yuki.Core.Implementations.User\\obj\\" +
-            "Debug\\netstandard2.0\\Yuki.Core.Implementations.User.dll";
+      private const string USER_IMPLEMENTATION_ASSEMBLY_PATH =
+          "..\\..\\..\\Yuki.Core.Implementations.User\\obj\\" +
+          "Debug\\netstandard2.0\\Yuki.Core.Implementations.User.dll";
 
-        private Resolver(bool useConfigurationFile)
-        {
-            InitializeMappingsDictionary();
-            mappingAllowAutoRegisterForSingleTypes = false;
+      private Resolver(bool useConfigurationFile)
+      {
+         InitializeMappingsDictionary();
+         mappingAllowAutoRegisterForSingleTypes = false;
 
-            if (useConfigurationFile)
-            {
-                SetConfigurationFromFile();
-            }
-            else
-            {
-                SetConfiguration();
-            }
-        }
+         if (useConfigurationFile)
+         {
+            SetConfigurationFromFile();
+         }
+         else
+         {
+            SetConfiguration();
+         }
+      }
 
-        private void SetConfigurationFromFile()
-        {
-			   string basePath = AppContext.BaseDirectory;
+      private void SetConfigurationFromFile()
+      {
+         string basePath = AppContext.BaseDirectory;
 
-            string configurationFilePath = string.Format("{0}{1}", 
-					AppContext.BaseDirectory,MAPPINGS_CONFIG_FILE_PATH);
+         string configurationFilePath = string.Format("{0}{1}",
+            AppContext.BaseDirectory, MAPPINGS_CONFIG_FILE_PATH);
 
-            MappingConfiguration mappingConfiguration =
-                    MappingConfiguration.LoadMappingConfiguration(configurationFilePath);
+         MappingConfiguration mappingConfiguration =
+                 MappingConfiguration.LoadMappingConfiguration(configurationFilePath);
 
-            mappingAllowAutoRegisterForSingleTypes = 
-                mappingConfiguration.AllowAutoRegisterOfSingleTypes;
+         mappingAllowAutoRegisterForSingleTypes =
+             mappingConfiguration.AllowAutoRegisterOfSingleTypes;
 
-            IEnumerable<string> absoluteAssembliesPaths =
-                mappingConfiguration.AssembliesFiles.ToList()
-                .Select(path => basePath + path);
+         IEnumerable<string> absoluteAssembliesPaths =
+             mappingConfiguration.AssembliesFiles.ToList()
+             .Select(path => basePath + path);
 
-            IEnumerable<Assembly> assemblies =
-                LoadImplementationsAssemblies(absoluteAssembliesPaths);
+         IEnumerable<Assembly> assemblies =
+             LoadImplementationsAssemblies(absoluteAssembliesPaths);
 
-            LoadImplementationsTypes(assemblies);
-            DoMappings(mappingConfiguration.Mappings);
-        }
+         LoadImplementationsTypes(assemblies);
+         DoMappings(mappingConfiguration.Mappings);
+      }
 
-        private void SetConfiguration()
-        {
-            string basePath = AppContext.BaseDirectory;
+      private void SetConfiguration()
+      {
+         string basePath = AppContext.BaseDirectory;
 
-            IEnumerable<Assembly> assemblies =
-                    LoadImplementationsAssemblies(new List<string>{
+         IEnumerable<Assembly> assemblies =
+                 LoadImplementationsAssemblies(new List<string>{
                         basePath + IMPLEMENTATIONS_ASSEMBLY_PATH,
                         basePath + USER_IMPLEMENTATION_ASSEMBLY_PATH });
 
-            LoadImplementationsTypes(assemblies);
-            DoMappings();
-        }
+         LoadImplementationsTypes(assemblies);
+         DoMappings();
+      }
 
-        private void InitializeMappingsDictionary()
-        {
-            implementationsMapping = new Dictionary<string, IDictionary<Country, string>>();
-            typesMapping = new Dictionary<string, Mapping>();
-        }
+      private void InitializeMappingsDictionary()
+      {
+         implementationsMapping = new Dictionary<string, IDictionary<Country, string>>();
+         typesMapping = new Dictionary<string, Mapping>();
+      }
 
-        private void LoadImplementationsTypes(IEnumerable<Assembly> assemblies)
-        {
-            implementationsTypes = (from assembly in assemblies
-                                    select assembly.GetTypes())
-                                    .SelectMany(c => c).ToList();
-        }
+      private void LoadImplementationsTypes(IEnumerable<Assembly> assemblies)
+      {
+         implementationsTypes = (from assembly in assemblies
+                                 select assembly.GetTypes())
+                                 .SelectMany(c => c).ToList();
+      }
 
-        private MappingConfiguration LoadMappingConfigurationFile(string path)
-        {
-            string mappingConfigFilePath =
-                string.Format("{0}{1}", AppContext.BaseDirectory, MAPPINGS_CONFIG_FILE_PATH);
+      private MappingConfiguration LoadMappingConfigurationFile(string path)
+      {
+         string mappingConfigFilePath =
+             string.Format("{0}{1}", AppContext.BaseDirectory, MAPPINGS_CONFIG_FILE_PATH);
 
-            return MappingConfiguration.LoadMappingConfiguration(mappingConfigFilePath);
-        }
+         return MappingConfiguration.LoadMappingConfiguration(mappingConfigFilePath);
+      }
 
-        private IEnumerable<Assembly>
-            LoadImplementationsAssemblies(IEnumerable<string> assembliesFilePaths)
-        {
-            IList<Assembly> assemblies = new List<Assembly>();
+      private IEnumerable<Assembly>
+          LoadImplementationsAssemblies(IEnumerable<string> assembliesFilePaths)
+      {
+         IList<Assembly> assemblies = new List<Assembly>();
 
-            assembliesFilePaths.ToList()
-                .ForEach(path => assemblies.Add(Assembly.LoadFile(path)));
+         assembliesFilePaths.ToList()
+             .ForEach(path => assemblies.Add(Assembly.LoadFile(path)));
 
-            return assemblies;
-        }
+         return assemblies;
+      }
 
-        private static Resolver InitializeInstance()
-        {
-            return new Resolver(true);
-        }
+      private static Resolver InitializeInstance()
+      {
+         return new Resolver(true);
+      }
 
-        private void DoMappings()
-        {
-            var VatImplementationsDic = new Dictionary<Country, string>
+      private void DoMappings()
+      {
+         var VatImplementationsDic = new Dictionary<Country, string>
             {
                 { Country.Belgium, "VATBelgium" },
                 { Country.Netherlands, "VATNetherlands" },
                 { Country.Spain, "VATSpain" }
             };
-            implementationsMapping.Add(typeof(IVat).Name, VatImplementationsDic);
+         implementationsMapping.Add(typeof(IVat).Name, VatImplementationsDic);
 
-            MultiMapping mapping = new MultiMapping();
-            mapping.Interface = "ivat";
-            mapping.MultiImplementation = true;
-            mapping.Implementations = new List<SpecificImplementation>()
+         MultiMapping mapping = new MultiMapping
+         {
+            Interface = "IVat",
+            MultiImplementation = true,
+            Implementations = new List<SpecificImplementation>()
             {
                 new SpecificImplementation(){ Discriminator = Country.Belgium,
-                    Implementation = "vatbelgium"},
+                    Implementation = "VatBelgium"},
                 new SpecificImplementation(){ Discriminator = Country.Netherlands,
                     Implementation = "VatNetherlands"},
                 new SpecificImplementation(){ Discriminator = Country.Spain,
-                    Implementation = "VATSPAIN"}
-            };
-            typesMapping.Add(typeof(IVat).Name.ToLower(), mapping);
-        }
-
-        private void DoMappings(IEnumerable<Mapping> mappings)
-        {
-            mappings.ToList().ForEach(mapping =>
-            {
-                if (mapping.MultiImplementation)
-                {
-                    typesMapping.Add(mapping.Interface.ToLower(), (MultiMapping)mapping);
-                }
-                else
-                {
-                    typesMapping.Add(mapping.Interface.ToLower(), (SingleMapping)mapping);
-                }
-            });
-        }
-
-        public static T Resolve<T>() where T : IDataComponent
-        {
-            try
-            {
-                Resolver resolver = Resolver.GetInstance();
-                return resolver
-                    .GetImplementation<T>(resolver.mappingAllowAutoRegisterForSingleTypes);
+                    Implementation = "VatSpain"}
             }
-            catch (NotImplementedException e)
+         };
+         typesMapping.Add(typeof(IVat).Name.ToLower(), mapping);
+      }
+
+      private void DoMappings(IEnumerable<Mapping> mappings)
+      {
+         mappings.ToList().ForEach(mapping =>
+         {
+            if (mapping.MultiImplementation)
             {
-                //Handle exception, out of scoope now.
-                throw e;
+               typesMapping.Add(mapping.Interface.ToLower(), (MultiMapping)mapping);
             }
-            catch (ReflectionTypeLoadException e)
+            else
             {
-                //Handle exception, out of scoope now.
-                throw e;
+               typesMapping.Add(mapping.Interface.ToLower(), (SingleMapping)mapping);
             }
-            catch (Exception e)
-            {
-                //Handle exception, out of scoope now.
-                throw e;
-            }
-        }
+         });
+      }
 
-        public static T Resolve<T>(Country country) where T : IDataComponent
-        {
-            try
-            {
-                return GetInstance().GetImplementation<T>(country);
-            }
-            catch (NotImplementedException e)
-            {
-                //Handle exception, out of scoope now.
-                throw e;
-            }
-            catch (ReflectionTypeLoadException e)
-            {
-                //Handle exception, out of scoope now.
-                throw e;
-            }
-            catch (Exception e)
-            {
-                //Handle exception, out of scoope now.
-                throw e;
-            }
-        }
+      public static T Resolve<T>() where T : IDataComponent
+      {
+         try
+         {
+            Resolver resolver = Resolver.GetInstance();
+            return resolver
+                .GetImplementation<T>(resolver.mappingAllowAutoRegisterForSingleTypes);
+         }
+         catch (NotImplementedException e)
+         {
+            //Handle exception, out of scoope now.
+            throw e;
+         }
+         catch (ReflectionTypeLoadException e)
+         {
+            //Handle exception, out of scoope now.
+            throw e;
+         }
+         catch (Exception e)
+         {
+            //Handle exception, out of scoope now.
+            throw e;
+         }
+      }
 
-        private T GetImplementation<T>(bool allowAutoRegisterOfTypes) where T : IDataComponent
-        {
-            if (!allowAutoRegisterOfTypes 
-                && !TryToGetImplementationTypeNameFromMappingConfig<T>(out string implTypeName))
-            {
-                ThrowNoRegisteredTypeException<T>();
-            }
+      public static T Resolve<T>(Country country) where T : IDataComponent
+      {
+         try
+         {
+            return GetInstance().GetImplementation<T>(country);
+         }
+         catch (NotImplementedException e)
+         {
+            //Handle exception, out of scoope now.
+            throw e;
+         }
+         catch (ReflectionTypeLoadException e)
+         {
+            //Handle exception, out of scoope now.
+            throw e;
+         }
+         catch (Exception e)
+         {
+            //Handle exception, out of scoope now.
+            throw e;
+         }
+      }
 
-            if (!TryFindImplementation<T>(out Type implementationType))
-            {
-                ThrowNotImplementedTypeException<T>();
-            }
-            T instance = BuildInstance<T>(implementationType);
+      private T GetImplementation<T>(bool allowAutoRegisterOfTypes) where T : IDataComponent
+      {
+         if (!allowAutoRegisterOfTypes
+             && !TryToGetImplementationTypeNameFromMappingConfig<T>(out string implTypeName))
+         {
+            ThrowNoRegisteredTypeException<T>();
+         }
 
-            return instance;
-        }
+         if (!TryFindImplementation<T>(out Type implementationType))
+         {
+            ThrowNotImplementedTypeException<T>();
+         }
+         T instance = BuildInstance<T>(implementationType);
 
-        private T GetImplementation<T>(Country country) where T : IDataComponent
-        {
-            if (!TryToGetImplementationTypeNameFromMappingConfig<T>(country,
-                    out string implementationTypeName))
-            {
-                ThrowNoRegisteredTypeException<T>();
-            }           
+         return instance;
+      }
 
-            if (!TryFindImplementation<T>(implementationTypeName, out Type implementationType))
-            {
-                ThrowNotImplementedTypeException<T>();
-            }
+      private T GetImplementation<T>(Country country) where T : IDataComponent
+      {
+         if (!TryToGetImplementationTypeNameFromMappingConfig<T>(country,
+                 out string implementationTypeName))
+         {
+            ThrowNoRegisteredTypeException<T>();
+         }
 
-            return BuildInstance<T>(implementationType);
-        }
+         if (!TryFindImplementation<T>(implementationTypeName, out Type implementationType))
+         {
+            ThrowNotImplementedTypeException<T>();
+         }
 
-        private void ThrowNoRegisteredTypeException<T>()
-        {
-            throw new NotSupportedException(string.Format("{0}{1}", 
-                notRegisteredTypeError, typeof(T).Name));
-        }
+         return BuildInstance<T>(implementationType);
+      }
 
-        private static bool TryToGetImplementationTypeNameFromMappingConfig<T>(Country country,
-            out string implementationTypeName) where T : IDataComponent
-        {
-            string interfaceName = typeof(T).Name;
+      private static void ThrowNoRegisteredTypeException<T>()
+      {
+         throw new NotSupportedException(string.Format(notRegisteredTypeError, typeof(T).Name));
+      }
 
-            MultiMapping mapping =
-                (MultiMapping)GetInstance().typesMapping[interfaceName.ToLower()];
+      private static bool TryToGetImplementationTypeNameFromMappingConfig<T>(Country country,
+          out string implementationTypeName) where T : IDataComponent
+      {
+         string interfaceName = typeof(T).Name;
 
-            implementationTypeName = mapping.Implementations
-                .FirstOrDefault(impl => impl.Discriminator == country).Implementation;
+         MultiMapping mapping =
+             (MultiMapping)GetInstance().typesMapping[interfaceName.ToLower()];
 
-            return implementationTypeName != null;
-        }
-        private static bool 
-            TryToGetImplementationTypeNameFromMappingConfig<T>(out string implementationTypeName) 
-            where T : IDataComponent
-        {
-            string interfaceName = typeof(T).Name;
+         implementationTypeName = mapping.Implementations
+             .FirstOrDefault(impl => impl.Discriminator == country).Implementation;
 
-            SingleMapping mapping =
-                (SingleMapping)GetInstance().typesMapping[interfaceName.ToLower()];
+         return implementationTypeName != null;
+      }
+      private static bool
+          TryToGetImplementationTypeNameFromMappingConfig<T>(out string implementationTypeName)
+          where T : IDataComponent
+      {
+         string interfaceName = typeof(T).Name;
 
-            implementationTypeName = mapping.Implementation;
+         bool found = GetInstance()
+            .typesMapping.TryGetValue(interfaceName.ToLower(), out Mapping mapping);
 
-            return implementationTypeName != null;
-        }
-        private static T BuildInstance<T>(Type implementationType) where T : IDataComponent
-        {
-            if (!InstanceBuilder.GetInstance()
-                            .TryToCreateInstance(implementationType, out T instance))
-            {
-                ThrowErrorOnTypeLoadException<T>();
-            }
+         if (!found)
+         {
+            ThrowNoRegisteredTypeException<T>();
+         }
 
-            return instance;
-        }
+         implementationTypeName = ((SingleMapping)mapping).Implementation;
 
-        internal bool TryFindImplementation<T>(out Type implementationType) where T : IDataComponent
-        {
-            implementationType = FindImplementations<T>().FirstOrDefault();
-            return implementationType != null && typeof(T) != typeof(IDataComponent);
-        }
+         return implementationTypeName != null;
+      }
+      private static T BuildInstance<T>(Type implementationType) where T : IDataComponent
+      {
+         if (!InstanceBuilder.GetInstance()
+                         .TryToCreateInstance(implementationType, out T instance))
+         {
+            ThrowErrorOnTypeLoadException<T>();
+         }
 
-        internal bool TryFindImplementation<T>(string implementationTypeName,
-            out Type implementationType) where T : IDataComponent
-        {
-            implementationTypeName = implementationTypeName.ToLower();
-            implementationType =
-                FindImplementations<T>()
-                .FirstOrDefault(t => t.Name.ToLower() == implementationTypeName);
+         return instance;
+      }
 
-            return implementationType != null && typeof(T) != typeof(IDataComponent);
-        }
+      internal bool TryFindImplementation<T>(out Type implementationType) where T : IDataComponent
+      {
+         implementationType = FindImplementations<T>().FirstOrDefault();
+         return implementationType != null && typeof(T) != typeof(IDataComponent);
+      }
 
-        private IEnumerable<Type> FindImplementations<T>() where T : IDataComponent
-        {
-            Type interfaceType = typeof(T);
+      internal bool TryFindImplementation<T>(string implementationTypeName,
+          out Type implementationType) where T : IDataComponent
+      {
+         implementationTypeName = implementationTypeName.ToLower();
+         implementationType =
+             FindImplementations<T>()
+             .FirstOrDefault(t => t.Name.ToLower() == implementationTypeName);
 
-            return (from type in implementationsTypes
-                    where interfaceType.IsAssignableFrom(type)
-                    && type.IsInterface == false
-                    select type);
-        }
+         return implementationType != null && typeof(T) != typeof(IDataComponent);
+      }
 
-        private static void ThrowNotImplementedTypeException<T>() where T : IDataComponent
-        {
-            throw new NotImplementedException(string.Format(errMsgNotImplemented,
-                                    typeof(T).ToString()));
-        }
+      private IEnumerable<Type> FindImplementations<T>() where T : IDataComponent
+      {
+         Type interfaceType = typeof(T);
 
-        private static void ThrowErrorOnTypeLoadException<T>() where T : IDataComponent
-        {
-            string errorMessage = string.Format(loadImplementationError, typeof(T).FullName);
-            throw new ReflectionTypeLoadException(null, null, errorMessage);
-        }
-    }
+         return (from type in implementationsTypes
+                 where interfaceType.IsAssignableFrom(type)
+                 && type.IsInterface == false
+                 select type);
+      }
+
+      private static void ThrowNotImplementedTypeException<T>() where T : IDataComponent
+      {
+         throw new NotImplementedException(string.Format(errMsgNotImplemented,
+                                 typeof(T).ToString()));
+      }
+
+      private static void ThrowErrorOnTypeLoadException<T>() where T : IDataComponent
+      {
+         string errorMessage = string.Format(loadImplementationError, typeof(T).FullName);
+         throw new ReflectionTypeLoadException(null, null, errorMessage);
+      }
+   }
 }
