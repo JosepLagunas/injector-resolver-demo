@@ -1,6 +1,6 @@
 ﻿using Yuki.Core.Interfaces.User;
 
-namespace Yuki.Core.Implementations.User.User
+namespace Yuki.Core.Implementations.User
 {
 	public class User : IUser
 	{
