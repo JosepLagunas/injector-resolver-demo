@@ -177,12 +177,12 @@ namespace Yuki.Core.Resolver
          }
          catch (ReflectionTypeLoadException e)
          {
-            //Handle exception, out of scoope now.
+            //Handle exception, out of scope now.
             throw e;
          }
          catch (Exception e)
          {
-            //Handle exception, out of scoope now.
+            //Handle exception, out of scope now.
             throw e;
          }
       }
@@ -195,17 +195,17 @@ namespace Yuki.Core.Resolver
          }
          catch (NotImplementedException e)
          {
-            //Handle exception, out of scoope now.
+            //Handle exception, out of scope now.
             throw e;
          }
          catch (ReflectionTypeLoadException e)
          {
-            //Handle exception, out of scoope now.
+            //Handle exception, out of scope now.
             throw e;
          }
          catch (Exception e)
          {
-            //Handle exception, out of scoope now.
+            //Handle exception, out of scope now.
             throw e;
          }
       }
