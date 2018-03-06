@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 using System.Linq;
 using System.Collections.Generic;
@@ -12,13 +12,17 @@ namespace Yuki.Core.Resolver
     public class Resolver : Singleton<Resolver>
     {
         private IDictionary<string, IDictionary<Country, string>> implementationsMapping;
+        private IDictionary<string, Mapping> typesMapping;
 
         private List<Type> implementationsTypes;
+        private bool mappingAllowAutoRegisterForSingleTypes;
 
         private const string errMsgNotImplemented = "{0} not implemented.";
         private const string loadImplementationError = "Unable to create instance of Type {0}";
+        private const string notRegisteredTypeError = "Not Registered Type found for {0}";
 
-        private const string MAPPINGS_CONFIG_FILE_PATH = "..\\..\\..\\Resolver.config";
+        private const string MAPPINGS_CONFIG_FILE_PATH = 
+			   "..\\..\\..\\resolver\\resolver-mapping-config.json";
 
         private const string IMPLEMENTATIONS_ASSEMBLY_PATH =
             "..\\..\\..\\Yuki.Core.Implementations\\obj\\Debug\\Yuki.Core.Implementations.dll";
@@ -30,7 +34,8 @@ namespace Yuki.Core.Resolver
         private Resolver(bool useConfigurationFile)
         {
             InitializeMappingsDictionary();
-            
+            mappingAllowAutoRegisterForSingleTypes = true;
+
             if (useConfigurationFile)
             {
                 SetConfigurationFromFile();
@@ -43,10 +48,16 @@ namespace Yuki.Core.Resolver
 
         private void SetConfigurationFromFile()
         {
-            string basePath = AppContext.BaseDirectory;
+			   string basePath = AppContext.BaseDirectory;
+
+            string configurationFilePath = string.Format("{0}{1}", 
+					AppContext.BaseDirectory,MAPPINGS_CONFIG_FILE_PATH);
 
             MappingConfiguration mappingConfiguration =
-                    MappingConfiguration.LoadMappingConfiguration(MAPPINGS_CONFIG_FILE_PATH);
+                    MappingConfiguration.LoadMappingConfiguration(configurationFilePath);
+
+            mappingAllowAutoRegisterForSingleTypes = 
+                mappingConfiguration.AllowAutoRegisterOfSingleTypes;
 
             IEnumerable<string> absoluteAssembliesPaths =
                 mappingConfiguration.AssembliesFiles.ToList()
@@ -75,6 +86,7 @@ namespace Yuki.Core.Resolver
         private void InitializeMappingsDictionary()
         {
             implementationsMapping = new Dictionary<string, IDictionary<Country, string>>();
+            typesMapping = new Dictionary<string, Mapping>();
         }
 
         private void LoadImplementationsTypes(IEnumerable<Assembly> assemblies)
@@ -117,32 +129,44 @@ namespace Yuki.Core.Resolver
                 { Country.Spain, "VATSpain" }
             };
             implementationsMapping.Add(typeof(IVat).Name, VatImplementationsDic);
+
+            MultiMapping mapping = new MultiMapping();
+            mapping.Interface = "ivat";
+            mapping.MultiImplementation = true;
+            mapping.Implementations = new List<SpecificImplementation>()
+            {
+                new SpecificImplementation(){ Discriminator = Country.Belgium,
+                    Implementation = "vatbelgium"},
+                new SpecificImplementation(){ Discriminator = Country.Netherlands,
+                    Implementation = "VatNetherlands"},
+                new SpecificImplementation(){ Discriminator = Country.Spain,
+                    Implementation = "VATSPAIN"}
+            };
+            typesMapping.Add(typeof(IVat).Name.ToLower(), mapping);
         }
 
         private void DoMappings(IEnumerable<Mapping> mappings)
         {
-            mappings.ToList()
-                .ForEach(mapping =>
+            mappings.ToList().ForEach(mapping =>
+            {
+                if (mapping.MultiImplementation)
                 {
-                    //ignore single mapping by now. fetched at runtime via Linq.
-                    if (mapping.MultiImplementation)
-                    {
-                        MultiMapping multiMapping = (MultiMapping)mapping;
-
-                        var implementationsDic = new Dictionary<Country, string>();
-                        multiMapping.Implementations.ToList<SpecificImplementation>()
-                        .ForEach(m => implementationsDic.Add(m.Discriminator, m.Implementation));
-
-                        implementationsMapping.Add(mapping.Interface, implementationsDic);
-                    }
-                });
+                    typesMapping.Add(mapping.Interface.ToLower(), (MultiMapping)mapping);
+                }
+                else
+                {
+                    typesMapping.Add(mapping.Interface.ToLower(), (SingleMapping)mapping);
+                }
+            });
         }
 
         public static T Resolve<T>() where T : IDataComponent
         {
             try
             {
-                return GetInstance().GetImplementation<T>();
+                Resolver resolver = Resolver.GetInstance();
+                return resolver
+                    .GetImplementation<T>(resolver.mappingAllowAutoRegisterForSingleTypes);
             }
             catch (NotImplementedException e)
             {
@@ -165,9 +189,7 @@ namespace Yuki.Core.Resolver
         {
             try
             {
-                string interfaceName = typeof(T).Name;
-                string implementationName = GetInstance().implementationsMapping[interfaceName][country];
-                return GetInstance().GetImplementation<T>(implementationName);
+                return GetInstance().GetImplementation<T>(country);
             }
             catch (NotImplementedException e)
             {
@@ -186,36 +208,80 @@ namespace Yuki.Core.Resolver
             }
         }
 
-        private T GetImplementation<T>() where T : IDataComponent
+        private T GetImplementation<T>(bool allowAutoRegisterOfTypes) where T : IDataComponent
         {
+            if (!allowAutoRegisterOfTypes 
+                && !TryToGetImplementationTypeNameFromMappingConfig<T>(out string implTypeName))
+            {
+                ThrowNoRegisteredTypeException<T>();
+            }
+
             if (!TryFindImplementation<T>(out Type implementationType))
             {
                 ThrowNotImplementedTypeException<T>();
             }
+            T instance = BuildInstance<T>(implementationType);
 
-            if (!TryToCreateInstance<T>(implementationType, out T instance))
-            {
-                ThrowErrorOnTypeLoadException<T>();
-            }
-
-            return (T)instance;
+            return instance;
         }
 
-        private T GetImplementation<T>(string implementationTypeName) where T : IDataComponent
+        private T GetImplementation<T>(Country country) where T : IDataComponent
         {
-            implementationTypeName = implementationTypeName.ToLower();
+            if (!TryToGetImplementationTypeNameFromMappingConfig<T>(country,
+                    out string implementationTypeName))
+            {
+                ThrowNoRegisteredTypeException<T>();
+            }           
 
             if (!TryFindImplementation<T>(implementationTypeName, out Type implementationType))
             {
                 ThrowNotImplementedTypeException<T>();
             }
 
-            if (!TryToCreateInstance<T>(implementationType, out T instance))
+            return BuildInstance<T>(implementationType);
+        }
+
+        private void ThrowNoRegisteredTypeException<T>()
+        {
+            throw new NotSupportedException(string.Format("{0}{1}", 
+                notRegisteredTypeError, typeof(T).Name));
+        }
+
+        private static bool TryToGetImplementationTypeNameFromMappingConfig<T>(Country country,
+            out string implementationTypeName) where T : IDataComponent
+        {
+            string interfaceName = typeof(T).Name;
+
+            MultiMapping mapping =
+                (MultiMapping)GetInstance().typesMapping[interfaceName.ToLower()];
+
+            implementationTypeName = mapping.Implementations
+                .FirstOrDefault(impl => impl.Discriminator == country).Implementation;
+
+            return implementationTypeName != null;
+        }
+        private static bool 
+            TryToGetImplementationTypeNameFromMappingConfig<T>(out string implementationTypeName) 
+            where T : IDataComponent
+        {
+            string interfaceName = typeof(T).Name;
+
+            SingleMapping mapping =
+                (SingleMapping)GetInstance().typesMapping[interfaceName.ToLower()];
+
+            implementationTypeName = mapping.Implementation;
+
+            return implementationTypeName != null;
+        }
+        private static T BuildInstance<T>(Type implementationType) where T : IDataComponent
+        {
+            if (!InstanceBuilder.GetInstance()
+                            .TryToCreateInstance(implementationType, out T instance))
             {
                 ThrowErrorOnTypeLoadException<T>();
             }
 
-            return (T)instance;
+            return instance;
         }
 
         internal bool TryFindImplementation<T>(out Type implementationType) where T : IDataComponent
@@ -227,6 +293,7 @@ namespace Yuki.Core.Resolver
         internal bool TryFindImplementation<T>(string implementationTypeName,
             out Type implementationType) where T : IDataComponent
         {
+            implementationTypeName = implementationTypeName.ToLower();
             implementationType =
                 FindImplementations<T>()
                 .FirstOrDefault(t => t.Name.ToLower() == implementationTypeName);
@@ -248,12 +315,6 @@ namespace Yuki.Core.Resolver
         {
             throw new NotImplementedException(string.Format(errMsgNotImplemented,
                                     typeof(T).ToString()));
-        }
-
-        private bool TryToCreateInstance<T>(Type outputType, out T instance)
-        {
-            instance = (T)outputType.Assembly.CreateInstance(outputType.FullName);
-            return instance != null;
         }
 
         private static void ThrowErrorOnTypeLoadException<T>() where T : IDataComponent
