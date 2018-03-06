@@ -34,7 +34,7 @@ namespace Yuki.Core.Resolver
         private Resolver(bool useConfigurationFile)
         {
             InitializeMappingsDictionary();
-            mappingAllowAutoRegisterForSingleTypes = true;
+            mappingAllowAutoRegisterForSingleTypes = false;
 
             if (useConfigurationFile)
             {
