@@ -13,6 +13,7 @@ namespace Yuki.Core.Resolver
     {
         private IDictionary<string, IDictionary<Country, string>> implementationsMapping;
         private IDictionary<string, Mapping> typesMapping;
+
         private List<Type> implementationsTypes;
         private bool mappingAllowAutoRegisterForSingleTypes;
 
@@ -32,7 +33,7 @@ namespace Yuki.Core.Resolver
         private Resolver(bool useConfigurationFile)
         {
             InitializeMappingsDictionary();
-            mappingAllowAutoRegisterForSingleTypes = false;
+            mappingAllowAutoRegisterForSingleTypes = true;
 
             if (useConfigurationFile)
             {
@@ -112,7 +113,7 @@ namespace Yuki.Core.Resolver
 
         private static Resolver InitializeInstance()
         {
-            return new Resolver(false);
+            return new Resolver(true);
         }
 
         private void DoMappings()
@@ -126,18 +127,18 @@ namespace Yuki.Core.Resolver
             implementationsMapping.Add(typeof(IVat).Name, VatImplementationsDic);
 
             MultiMapping mapping = new MultiMapping();
-            mapping.Interface = "IVat";
+            mapping.Interface = "ivat";
             mapping.MultiImplementation = true;
             mapping.Implementations = new List<SpecificImplementation>()
             {
                 new SpecificImplementation(){ Discriminator = Country.Belgium,
-                    Implementation = "VatBelgium"},
+                    Implementation = "vatbelgium"},
                 new SpecificImplementation(){ Discriminator = Country.Netherlands,
                     Implementation = "VatNetherlands"},
                 new SpecificImplementation(){ Discriminator = Country.Spain,
-                    Implementation = "VatSpain"}
+                    Implementation = "VATSPAIN"}
             };
-            typesMapping.Add(typeof(IVat).Name, mapping);
+            typesMapping.Add(typeof(IVat).Name.ToLower(), mapping);
         }
 
         private void DoMappings(IEnumerable<Mapping> mappings)
