@@ -167,8 +167,16 @@ namespace Yuki.Core.Resolver
          try
          {
             Resolver resolver = Resolver.GetInstance();
-            return resolver
+            var implementation = resolver
                 .GetImplementation<T>(resolver.mappingAllowAutoRegisterForSingleTypes);
+
+            if (!Injector.GetInstance().TryInjectTypes(implementation, out T initializedInstance))
+            {
+               ThrowErrorOnTypeLoadException<T>();
+            }
+
+            return initializedInstance;
+
          }
          catch (NotImplementedException e)
          {
@@ -191,7 +199,16 @@ namespace Yuki.Core.Resolver
       {
          try
          {
-            return GetInstance().GetImplementation<T>(country);
+            Resolver resolver = GetInstance();
+            var implementation = resolver.GetImplementation<T>(country);
+
+            if (!Injector.GetInstance().TryInjectTypes(implementation, out T initializedInstance))
+            {
+               ThrowErrorOnTypeLoadException<T>();
+            }
+
+            return initializedInstance;
+
          }
          catch (NotImplementedException e)
          {

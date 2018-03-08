@@ -59,27 +59,6 @@ namespace Yuki.Core.Resolver
              .CreateDelegate(typeof(CreateInstanceDelegate));
 
          return constructorDelegate;
-      }
-
-      private void AddLazyInitializationMethodToInstance<T, Tinjected>(ref T instance)
-      {
-         var lazyType = typeof(Lazy<>).MakeGenericType(new[] { typeof(Tinjected) });
-
-         DynamicMethod dynamicMethod =
-            new DynamicMethod("LazyInitializator_" + typeof(Tinjected).Name, lazyType, new Type[0]);
-
-         ConstructorInfo constructorInfo = lazyType.GetConstructor(new Type[0]);
-         ILGenerator iLGenerator = dynamicMethod.GetILGenerator();
-         iLGenerator.Emit(OpCodes.Newobj, constructorInfo);
-         iLGenerator.Emit(OpCodes.Ret);
-
-         //constructorDelegate =
-         //    (CreateInstanceDelegate)dynamicMethod
-         //    .CreateDelegate(typeof(CreateInstanceDelegate));
-
-         //return constructorDelegate;
-      }
-
-
+      }      
    }
 }

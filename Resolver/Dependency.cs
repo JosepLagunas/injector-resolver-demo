@@ -2,7 +2,7 @@
 
 namespace Yuki.Core.Resolver
 {
-   public class Dependency : Attribute
+   public class Inject : Attribute
    {
    }
 }

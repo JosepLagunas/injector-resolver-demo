@@ -117,6 +117,8 @@ namespace TestApplication
          Console.WriteLine("Creating User");
          IUser user = Resolver.Resolve<IUser>();
 
+         ICalendar calendar = user.Calendar;
+
          Console.WriteLine("User instance initialized");
          user.Init();
 
