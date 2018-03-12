@@ -1,37 +1,37 @@
 {
-  "assemblies-files-paths": [
-    "..\\..\\..\\Yuki.Core.Implementations\\obj\\Debug\\Yuki.Core.Implementations.dll",
-    "..\\..\\..\\Yuki.Core.Implementations.User\\obj\\Debug\\netstandard2.0\\Yuki.Core.Implementations.User.dll"
-  ],
-  "allow-singletypes-autoregister": true,
-  "mappings": [
-    {
-      "multi-implementation": false,
-      "interface": "IUser",
-      "implementation": "User"
-    },
-    {
-      "multi-implementation": true,
-      "interface": "IVat",
-      "implementations": [
+    "assemblies-files-paths": [
+        "..\\..\\..\\Yuki.Core.Implementations\\obj\\Debug\\Yuki.Core.Implementations.dll",
+        "..\\..\\..\\Yuki.Core.Implementations.User\\obj\\Debug\\netstandard2.0\\Yuki.Core.Implementations.User.dll"
+    ],
+    "allow-singletypes-autoregister": true,
+    "mappings": [
         {
-          "discriminator": "Belgium",
-          "implementation": "VatBelgium"
+            "multi-implementation": false,
+            "interface": "IUser",
+            "implementation": "User"
         },
         {
-          "discriminator": "Netherlands",
-          "implementation": "VatNetherlands"
+            "multi-implementation": true,
+            "interface": "IVat",
+            "implementations": [
+                {
+                    "discriminator": "Belgium",
+                    "implementation": "VatBelgium"
+                },
+                {
+                    "discriminator": "Netherlands",
+                    "implementation": "VatNetherlands"
+                },
+                {
+                    "discriminator": "Spain",
+                    "implementation": "VatSpain"
+                }
+            ]
         },
         {
-          "discriminator": "Spain",
-          "implementation": "VatSpain"
+            "multi-implementation": false,
+            "interface": "ICalendar",
+            "implementation": "Calendar"
         }
-      ]
-    },
-    {
-      "multi-implementation": false,
-      "interface": "ICalendar",
-      "implementation": "Calendar"
-    }
-  ]
+    ]
 }

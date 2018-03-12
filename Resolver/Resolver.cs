@@ -167,15 +167,11 @@ namespace Yuki.Core.Resolver
          try
          {
             Resolver resolver = Resolver.GetInstance();
-            var implementation = resolver
+
+            T implementation = resolver
                 .GetImplementation<T>(resolver.mappingAllowAutoRegisterForSingleTypes);
-
-            if (!Injector.GetInstance().TryInjectTypes(implementation, out T initializedInstance))
-            {
-               ThrowErrorOnTypeLoadException<T>();
-            }
-
-            return initializedInstance;
+            
+            return implementation;
 
          }
          catch (NotImplementedException e)
@@ -201,13 +197,8 @@ namespace Yuki.Core.Resolver
          {
             Resolver resolver = GetInstance();
             var implementation = resolver.GetImplementation<T>(country);
-
-            if (!Injector.GetInstance().TryInjectTypes(implementation, out T initializedInstance))
-            {
-               ThrowErrorOnTypeLoadException<T>();
-            }
-
-            return initializedInstance;
+                        
+            return implementation;
 
          }
          catch (NotImplementedException e)
@@ -239,9 +230,11 @@ namespace Yuki.Core.Resolver
          {
             ThrowNotImplementedTypeException<T>();
          }
-         T instance = BuildInstance<T>(implementationType);
 
-         return instance;
+         Type proxyType = ProxyFactory.GetInstance()
+            .BuildProxyType(implementationType);
+
+         return BuildInstance<T>(proxyType);         
       }
 
       private T GetImplementation<T>(Country country) where T : IDataComponent
@@ -257,7 +250,10 @@ namespace Yuki.Core.Resolver
             ThrowNotImplementedTypeException<T>();
          }
 
-         return BuildInstance<T>(implementationType);
+         Type proxyType = ProxyFactory.GetInstance()
+            .BuildProxyType(implementationType);
+
+         return BuildInstance<T>(proxyType);
       }
 
       private static void ThrowNoRegisteredTypeException<T>()

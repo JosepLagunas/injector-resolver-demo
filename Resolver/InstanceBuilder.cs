@@ -59,6 +59,6 @@ namespace Yuki.Core.Resolver
              .CreateDelegate(typeof(CreateInstanceDelegate));
 
          return constructorDelegate;
-      }      
+      }
    }
 }
